@@ -69,7 +69,10 @@ CREATE TABLE `defaults` (
   `connect_timeout` int(11) DEFAULT 4000,
   `server_timeout` int(11) DEFAULT 60000,
   `queue_timeout` int(11) DEFAULT 60000,
-  `http_request_timeout` int(11) DEFAULT 5000
+  `http_request_timeout` int(11) DEFAULT 5000,
+  `log` varchar(1024) DEFAULT 'global',
+  `log_option` enum('httplog','tcplog') DEFAULT 'httplog',
+  `log_format` varchar(4096) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -140,4 +143,4 @@ CREATE TABLE `servers` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2018-04-02 19:21:05
+-- Dump completed on 2018-04-02 20:39:48

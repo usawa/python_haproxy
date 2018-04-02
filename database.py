@@ -1,13 +1,12 @@
 import ipaddress
 import io # StringIO
 import mysql.connector as mariadb
-import re
 
 # haproxy defs
-haproxy_modes=['http','tcp','health']
-haproxy_monitor_modes=['http','tcp', 'ssl']
-haproxy_balances=['roundrobin','static-rr','leastconn','first','source','uri','url_param','hdr','rdp-cookie']
-haproxy_compression_algorithms=['identity','gzip','deflate','raw-deflate']
+haproxy_modes=['http', 'tcp', 'health']
+haproxy_monitor_modes=['http', 'tcp', 'ssl']
+haproxy_balances=['roundrobin', 'static-rr', 'leastconn', 'first', 'source', 'uri', 'url_param', 'hdr', 'rdp-cookie']
+haproxy_compression_algorithms=['identity', 'gzip', 'deflate', 'raw-deflate']
 
 """
 brew install mariadb 
@@ -127,22 +126,6 @@ class db_storage:
         self.conn.close()
 
 
-"""
-    def create_scheme(self, name="lb_api.db.sql"):
-        if self.conn == None:
-            return 1
-
-        try:
-            file = open(name, "r")
-            sql = file.read()
-            if sql:
-                self.conn.executescript(sql)
-        except:
-            print("Not able to import scheme")
-            return 1
-
-"""
-
 x = db_storage()
 
 def add_server(name=None, ip=None):
@@ -159,8 +142,14 @@ def add_server(name=None, ip=None):
 
     # Insert Server
     try:
-        sql="insert into servers (name, ip) values ('"+name+"', '"+ip+"') " \
-        "on duplicate key update ip='"+ip+"'"
+        sql="insert into servers (" \
+                "name, " \
+                "ip) " \
+            "values (" \
+                "'"+name+"', " \
+                "'"+ip+"') " \
+        "on duplicate key update " \
+                       "ip='"+ip+"'"
 
         x.execute(sql)
     except mariadb.errors.IntegrityError:
@@ -246,7 +235,7 @@ def add_server_to_backend(backend_name=None, server_name=None, port=None, ssl=Fa
     Two mandatory parameters : name, kind
     We can send a string (tcp or http), and expect a result.
     For now we do simple things.
-    In the future, wa can expect to create complex healthchecks with multiple send and expects 
+    In the future, wa can expect to create complex health checks with multiple send and expects 
     (for example, expect a specific return code with a specific content, which is not possible
     with http-expect, but possible with tcp-expect)
 """
@@ -346,6 +335,8 @@ def add_frontend(name=None, mode='http', ip=None, port=None, default_backend=Non
         print("Frontend already exists")
         return 3
 
+
+# TODO: generate errorfiles
 def generate_defaults():
 
     output= io.StringIO()
@@ -358,15 +349,32 @@ def generate_defaults():
         print("Error in select defaults")
         return 1
 
-    ( mode,
-      client_timeout,
-      connect_timeout,
-      server_timeout,
-      queue_timeout,
-      http_request_timeout
-    )=row
+    (
+        mode,
+        client_timeout,
+        connect_timeout,
+        server_timeout,
+        queue_timeout,
+        http_request_timeout,
+        log,
+        log_option,
+        log_format
+    ) = row
 
     print("defaults", file=output)
+
+    # mode
+    print("\tmode {:s}".format(mode), file=output)
+    # logs
+    if log == 'no':
+        print("\tno log")
+    else:
+        print("\tlog {:s}".format(log), file=output)
+
+    if not log_format:
+        print("\toption {:s}".format(log_option), file=output)
+    else:
+        print("\tlog-format {:s}".format(log_format), file=output)
 
     print("\ttimeout client {:d}".format(client_timeout), file=output)
     print("\ttimeout server {:d}".format(server_timeout), file=output)
