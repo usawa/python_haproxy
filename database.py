@@ -384,6 +384,13 @@ def generate_defaults():
 
     return (output.getvalue())
 
+# TODO: ACLs + use_backend, find a way to store them. ACL : https://cbonte.github.io/haproxy-dconv/1.7/configuration.html#7
+""" 
+ACLs:
+    acl <name> <criterion> <flags> <operator> <values> ...
+    
+      
+"""
 def generate_frontend_configuration(frontend_name=None):
     output = io.StringIO()
 
