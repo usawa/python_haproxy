@@ -81,6 +81,8 @@ Frontends
  - default backend
 
 """
+
+
 class db_storage:
 
     conn = False
@@ -127,6 +129,7 @@ class db_storage:
 
 
 x = db_storage()
+
 
 def add_server(name=None, ip=None):
     if not name or not ip:
@@ -193,6 +196,7 @@ def add_backend(name=None, mode="http", balance="roundrobin", balance_parameters
         print("Backend already exists")
         return 3
 
+
 def add_server_to_backend(backend_name=None, server_name=None, port=None, ssl=False, ssl_verify=False):
     if not backend_name or not server_name or not port:
         print("invalid parameters")
@@ -239,6 +243,8 @@ def add_server_to_backend(backend_name=None, server_name=None, port=None, ssl=Fa
     (for example, expect a specific return code with a specific content, which is not possible
     with http-expect, but possible with tcp-expect)
 """
+
+
 def add_monitor(name=None, kind=None, send="", expect="", fall=3, rise=2, inter=2000, http_disable_on_404=False, http_send_state=False, tcp_port=0):
         if not name or not kind:
             print("invalid name or kind")
@@ -288,6 +294,7 @@ def add_monitor(name=None, kind=None, send="", expect="", fall=3, rise=2, inter=
         except mariadb.errors.IntegrityError:
             print("Monitor already exists")
             return 3
+
 
 def add_frontend(name=None, mode='http', ip=None, port=None, default_backend=None, compression_algo=None, monitor_uri=None):
     if not name or not ip or not port or not default_backend:
@@ -384,13 +391,61 @@ def generate_defaults():
 
     return (output.getvalue())
 
-# TODO: ACLs + use_backend, find a way to store them. ACL : https://cbonte.github.io/haproxy-dconv/1.7/configuration.html#7
+
+# TODO: find a way to store acls/criterias. ACL : https://cbonte.github.io/haproxy-dconv/1.7/configuration.html#7
 """ 
 ACLs:
     acl <name> <criterion> <flags> <operator> <values> ...
     
+    Store ACL
+    
+    Table ACL:
+        - ACL_name
+        - ACL_criterion, flags ...
+        
+    Store if/unless ACL list :    
+    Idea : chain list in SQL. Two tables :
+    
+    Table condition:
+        - name
+        - if/unless
+        - First ACL criterion index (second table)
+        
+    Table criteria:
+        - criterion_id
+        - negate (boolean)
+        - ACL_name
+        - negate (boolean)
+        - and/or/none
+        - next_criterion_id
       
+    example:
+    two acls:
+        acl use_client_cert ssl_c_used
+        acl client_cert_valid ssl_c_verify 0
+    usage :
+      http-request allow if use_client_cert client_cert_valid
+      
+    condition
+        - toto
+        - if
+  |---- - id:10
+  |      
+  |  criteria
+  |---> - id:10
+        - no (no negation)
+        - use_client_cert
+        - and
+  |---- - id:12
+  |      
+  |---> - id:12
+        - no (no negation)
+        - client_cert_valid
+        - NULL (no operator)
+        - NULL (no next criteria)
 """
+
+
 def generate_frontend_configuration(frontend_name=None):
     output = io.StringIO()
 
