@@ -1,6 +1,7 @@
 import ipaddress
 import io # StringIO
 import mysql.connector as mariadb
+import pprint
 
 # haproxy defs
 haproxy_modes=['http', 'tcp', 'health']
@@ -118,6 +119,10 @@ class db_storage:
 
     def fetch(self):
             return self.cursor.fetchone()
+
+    def insert_id(self):
+        return self.cursor.lastrowid
+
 
     def commit(self):
         self.conn.commit()
@@ -418,7 +423,37 @@ def add_acl(name=None, acl=None):
 
 
 # add condition : list of acls
-def add_condition(name=None, acl_list={}):
+"""
+condition =[ { "negate": False , 'acl_name': 'github_hook', "operator": "and" },
+                 { 'negate':False, 'acl_name': 'github_event', 'operator': 'and' },
+                 { 'negate':False, 'acl_name': 'github_delivery', "operator": "and" },
+                 { 'negate':False, 'acl_name': 'github_range', "operator": None } ]
+                 
+"""
+def add_condition(name=None, acl_list=[]):
+
+    next_criterion = 0
+
+    # If condition exists : delete it, delete all criteria then recreate
+
+
+    for i in reversed(acl_list):
+
+        sql = "insert into criteria (`negate`, `acl_name`, `operator`, `next_criterion`) values ( " \
+                + (str(bool(False)) if i["negate"] else str(bool(True))) + ", " \
+                "'" + i["acl_name"] + "', " \
+                + ("'" + i["operator"]+"'" if i["operator"] else "NULL" )+ ", " \
+                + ("'" + str(next_criterion)+"'" if next_criterion else "NULL") + ")"
+        print(sql)
+        x.execute(sql)
+
+        next_criterion = x.insert_id()
+
+    sql = "Insert into conditions (`name`, `criterion_id`) values ( " \
+                "'" + name +"', " \
+                "'" + str(next_criterion) + "')"
+    print(sql)
+    x.execute(sql)
 
     return 0
 
@@ -667,8 +702,11 @@ add_acl("github_event","req.hdr(X-GitHub-Event) -m found")
 add_acl("github_delivery","req.hdr(X-GitHub-Delivery) -m found")
 add_acl("github_range","src 192.30.252.0/22")
 
-
-
+condition =[ { "negate": False , 'acl_name': 'github_hook', "operator": "and" },
+                 { 'negate':False, 'acl_name': 'github_event', 'operator': 'and' },
+                 { 'negate':False, 'acl_name': 'github_delivery', "operator": "and" },
+                 { 'negate':False, 'acl_name': 'github_range', "operator": None } ]
+add_condition("test", condition)
 
 print(generate_defaults())
 print(generate_frontend_configuration("mybackend"))

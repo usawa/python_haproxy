@@ -79,11 +79,10 @@ DROP TABLE IF EXISTS `conditions`;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `conditions` (
   `name` varchar(255) NOT NULL,
-  `condition` enum('if','unless') NOT NULL DEFAULT 'if',
   `criterion_id` int(11) unsigned NOT NULL,
   PRIMARY KEY (`name`),
-  KEY `criterion_id_idx` (`criterion_id`),
-  CONSTRAINT `criterion_id` FOREIGN KEY (`criterion_id`) REFERENCES `criteria` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION
+  KEY `first_criterion_idx` (`criterion_id`),
+  CONSTRAINT `first_criterion` FOREIGN KEY (`criterion_id`) REFERENCES `criteria` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -95,17 +94,17 @@ DROP TABLE IF EXISTS `criteria`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `criteria` (
-  `id` int(10) unsigned NOT NULL,
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `negate` tinyint(4) DEFAULT 0,
   `acl_name` varchar(255) NOT NULL,
   `operator` enum('and','or') DEFAULT 'and',
-  `next_criterion` int(10) unsigned NOT NULL,
-  PRIMARY KEY (`id`,`next_criterion`),
+  `next_criterion` int(10) unsigned DEFAULT NULL,
+  PRIMARY KEY (`id`),
   KEY `acl_idx` (`acl_name`),
   KEY `next_criterion_idx` (`next_criterion`),
   CONSTRAINT `acl` FOREIGN KEY (`acl_name`) REFERENCES `acls` (`name`) ON DELETE NO ACTION ON UPDATE NO ACTION,
-  CONSTRAINT `next_criterion` FOREIGN KEY (`next_criterion`) REFERENCES `criteria` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+  CONSTRAINT `next_criterion` FOREIGN KEY (`next_criterion`) REFERENCES `criteria` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
+) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -195,4 +194,4 @@ CREATE TABLE `servers` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2018-04-07 14:44:42
+-- Dump completed on 2018-04-07 19:15:14
