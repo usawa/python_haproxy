@@ -16,6 +16,20 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
+-- Table structure for table `acls`
+--
+
+DROP TABLE IF EXISTS `acls`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `acls` (
+  `name` varchar(255) NOT NULL,
+  `acl` varchar(512) DEFAULT NULL,
+  PRIMARY KEY (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `backend_servers`
 --
 
@@ -53,6 +67,44 @@ CREATE TABLE `backends` (
   PRIMARY KEY (`name`),
   KEY `monitor_idx` (`monitor_name`),
   CONSTRAINT `monitor` FOREIGN KEY (`monitor_name`) REFERENCES `monitors` (`name`) ON DELETE NO ACTION ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `conditions`
+--
+
+DROP TABLE IF EXISTS `conditions`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `conditions` (
+  `name` varchar(255) NOT NULL,
+  `condition` enum('if','unless') NOT NULL DEFAULT 'if',
+  `criterion_id` int(11) unsigned NOT NULL,
+  PRIMARY KEY (`name`),
+  KEY `criterion_id_idx` (`criterion_id`),
+  CONSTRAINT `criterion_id` FOREIGN KEY (`criterion_id`) REFERENCES `criteria` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `criteria`
+--
+
+DROP TABLE IF EXISTS `criteria`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `criteria` (
+  `id` int(10) unsigned NOT NULL,
+  `negate` tinyint(4) DEFAULT 0,
+  `acl_name` varchar(255) NOT NULL,
+  `operator` enum('and','or') DEFAULT 'and',
+  `next_criterion` int(10) unsigned NOT NULL,
+  PRIMARY KEY (`id`,`next_criterion`),
+  KEY `acl_idx` (`acl_name`),
+  KEY `next_criterion_idx` (`next_criterion`),
+  CONSTRAINT `acl` FOREIGN KEY (`acl_name`) REFERENCES `acls` (`name`) ON DELETE NO ACTION ON UPDATE NO ACTION,
+  CONSTRAINT `next_criterion` FOREIGN KEY (`next_criterion`) REFERENCES `criteria` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -143,4 +195,4 @@ CREATE TABLE `servers` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2018-04-02 20:39:48
+-- Dump completed on 2018-04-07 14:44:42

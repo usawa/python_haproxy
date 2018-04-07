@@ -343,6 +343,86 @@ def add_frontend(name=None, mode='http', ip=None, port=None, default_backend=Non
         return 3
 
 
+# TODO: find a way to store acls/criterias. ACL : https://cbonte.github.io/haproxy-dconv/1.7/configuration.html#7
+""" 
+ACLs:
+    acl <name> <criterion> <flags> <operator> <values> ...
+
+    Store ACL
+
+    Table ACL:
+        - ACL_name
+        - ACL_criterion, flags ...
+
+    Store if/unless ACL list :    
+    Idea : chain list in SQL. Two tables :
+
+    Table condition:
+        - name
+        - if/unless
+        - First ACL criterion index (second table)
+
+    Table criteria:
+        - criterion_id
+        - negate (boolean)
+        - ACL_name
+        - and/or/none
+        - next_criterion_id
+
+    example:
+    two acls:
+        acl use_client_cert ssl_c_used
+        acl client_cert_valid ssl_c_verify 0
+    usage :
+      http-request allow if use_client_cert client_cert_valid
+
+    condition
+        - toto
+  |---- - first_id:10
+  |      
+  |  criteria
+  |---> - id:10
+        - no (no negation)
+        - use_client_cert
+        - and
+  |---- - id:12
+  |      
+  |---> - id:12
+        - no (no negation)
+        - client_cert_valid
+        - NULL (no operator)
+        - NULL (no next criteria)
+"""
+
+
+# For now, acl is text.
+# TODO: ACL Interpreter  / degugger ?
+def add_acl(name=None, acl=None):
+
+    if not name or not acl:
+        print("invalid acl parameter")
+        return 1
+
+    try:
+        sql ="INSERT INTO acls (`name`, `acl`) values (" \
+                "'" + name + "', " \
+                "'" + acl +"') " \
+            "on duplicate key update " \
+                "`acl`='" + acl +"'"
+
+        #print(sql)
+        x.execute(sql)
+    except mariadb.errors.IntegrityError:
+        print("Frontend already exists")
+        return 3
+
+
+# add condition : list of acls
+def add_condition(name=None, acl_list={}):
+
+    return 0
+
+
 # TODO: generate errorfiles
 def generate_defaults():
 
@@ -392,58 +472,6 @@ def generate_defaults():
     return (output.getvalue())
 
 
-# TODO: find a way to store acls/criterias. ACL : https://cbonte.github.io/haproxy-dconv/1.7/configuration.html#7
-""" 
-ACLs:
-    acl <name> <criterion> <flags> <operator> <values> ...
-    
-    Store ACL
-    
-    Table ACL:
-        - ACL_name
-        - ACL_criterion, flags ...
-        
-    Store if/unless ACL list :    
-    Idea : chain list in SQL. Two tables :
-    
-    Table condition:
-        - name
-        - if/unless
-        - First ACL criterion index (second table)
-        
-    Table criteria:
-        - criterion_id
-        - negate (boolean)
-        - ACL_name
-        - negate (boolean)
-        - and/or/none
-        - next_criterion_id
-      
-    example:
-    two acls:
-        acl use_client_cert ssl_c_used
-        acl client_cert_valid ssl_c_verify 0
-    usage :
-      http-request allow if use_client_cert client_cert_valid
-      
-    condition
-        - toto
-        - if
-  |---- - id:10
-  |      
-  |  criteria
-  |---> - id:10
-        - no (no negation)
-        - use_client_cert
-        - and
-  |---- - id:12
-  |      
-  |---> - id:12
-        - no (no negation)
-        - client_cert_valid
-        - NULL (no operator)
-        - NULL (no next criteria)
-"""
 
 
 def generate_frontend_configuration(frontend_name=None):
@@ -633,6 +661,14 @@ add_server_to_backend(backend_name="test",server_name="fifi",port=80,ssl=False)
 add_server_to_backend(backend_name="test",server_name="loulou",port=80,ssl=False)
 
 add_frontend(name="mybackend", mode='http', ip="127.0.0.1", port="8080", default_backend="test")
+
+add_acl("github_hook","hdr_beg(User-Agent) -i GitHub-Hookshot")
+add_acl("github_event","req.hdr(X-GitHub-Event) -m found")
+add_acl("github_delivery","req.hdr(X-GitHub-Delivery) -m found")
+add_acl("github_range","src 192.30.252.0/22")
+
+
+
 
 print(generate_defaults())
 print(generate_frontend_configuration("mybackend"))
