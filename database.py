@@ -117,15 +117,22 @@ class db_storage:
         if command:
             self.cursor.execute(command)
 
+
     def fetch(self):
             return self.cursor.fetchone()
+
 
     def insert_id(self):
         return self.cursor.lastrowid
 
 
+    def count(self):
+        return self.cursor.rowcount
+
+
     def commit(self):
         self.conn.commit()
+
 
     def close(self):
         self.conn.commit()
@@ -408,12 +415,14 @@ def add_acl(name=None, acl=None):
         print("invalid acl parameter")
         return 1
 
+    # Do nothing if
+
     try:
         sql ="INSERT INTO acls (`name`, `acl`) values (" \
                 "'" + name + "', " \
-                "'" + acl +"') " \
+                "'" + repr(acl)[1:-1] +"') " \
             "on duplicate key update " \
-                "`acl`='" + acl +"'"
+                "`acl`='" + repr(acl)[1:-1] +"'"
 
         #print(sql)
         x.execute(sql)
@@ -423,39 +432,108 @@ def add_acl(name=None, acl=None):
 
 
 # add condition : list of acls
-"""
-condition =[ { "negate": False , 'acl_name': 'github_hook', "operator": "and" },
-                 { 'negate':False, 'acl_name': 'github_event', 'operator': 'and' },
-                 { 'negate':False, 'acl_name': 'github_delivery', "operator": "and" },
-                 { 'negate':False, 'acl_name': 'github_range', "operator": None } ]
-                 
-"""
 def add_condition(name=None, acl_list=[]):
 
-    next_criterion = 0
+    if not name or not acl_list:
+        print("Error in add_condition parameters")
+        return 1
 
     # If condition exists : delete it, delete all criteria then recreate
+    sql = "select criterion_id from conditions where name='" + name + "'"
+    x.execute(sql)
 
+    # Existing condition : delete all criteria and recreate them
+    if x.count():
+        (next_criterion,) = x.fetch()
+        while next_criterion:
+            sql = "select id, next_criterion from criteria where id='" + str(next_criterion) + "'"
+            x.execute(sql)
+            (criterion_id, next_criterion) = x.fetch()
+            sql = "delete from criteria where id='" + str(criterion_id) + "'"
+            x.execute(sql)
+
+    next_criterion = 0
 
     for i in reversed(acl_list):
 
         sql = "insert into criteria (`negate`, `acl_name`, `operator`, `next_criterion`) values ( " \
                 + (str(bool(False)) if i["negate"] else str(bool(True))) + ", " \
                 "'" + i["acl_name"] + "', " \
-                + ("'" + i["operator"]+"'" if i["operator"] else "NULL" )+ ", " \
-                + ("'" + str(next_criterion)+"'" if next_criterion else "NULL") + ")"
+                + ("'" + i["operator"] + "'" if i["operator"] else "NULL") + ", " \
+                + ("'" + str(next_criterion) + "'" if next_criterion else "NULL") + ")"
         print(sql)
         x.execute(sql)
 
         next_criterion = x.insert_id()
 
     sql = "Insert into conditions (`name`, `criterion_id`) values ( " \
-                "'" + name +"', " \
-                "'" + str(next_criterion) + "')"
+                "'" + name + "', " \
+                "'" + str(next_criterion) + "') " \
+                "on duplicate key update " \
+                "`criterion_id`='"+str(next_criterion)+"'"
     print(sql)
     x.execute(sql)
 
     return 0
+
+
+def generate_condition(condition_name=None):
+    if not condition_name:
+        print("No condition specified")
+        return 1
+
+    output = io.StringIO()
+    mystr = ''
+
+    sql = "SELECT criterion_id " \
+          "FROM conditions " \
+          "WHERE name='{:s}'".format(condition_name)
+
+    x.execute(sql)
+    (next_criterion,) = x.fetch()
+
+    # Found criteria
+    if next_criterion:
+        while next_criterion:
+            sql = "SELECT id, negate, acl_name, operator, next_criterion " \
+                  "FROM criteria " \
+                  "WHERE id='{:d}'".format(next_criterion)
+            x.execute(sql)
+            (criterion_id, negate, acl_name, operator, next_criterion) = x.fetch()
+
+            mystr = "{:s} {:s}{:s}{:s}".format(mystr,
+                                               "!" if not negate else "",
+                                               acl_name,
+                                               " || " if operator == "or" else "")
+
+    print(mystr, file=output)
+
+    return output.getvalue()
+
+
+def generate_acl(frontend_name=None):
+    output = io.StringIO()
+
+    if not frontend_name:
+        print("No frontend name defined")
+        return 1
+
+    sql="SELECT " \
+        "`name` ," \
+        "`acl`" \
+        "FROM acls"
+
+    x.execute(sql)
+    row = x.fetch()
+    while row is not None:
+        (name,
+         acl) = row
+
+        print("\tacl {:s} {:s}".format(name, acl), file=output)
+
+        row = x.fetch()
+
+    return output.getvalue()
 
 
 # TODO: generate errorfiles
@@ -504,7 +582,7 @@ def generate_defaults():
     print("\ttimeout queue {:d}".format(queue_timeout), file=output)
     print("\ttimeout http-request {:d}".format(http_request_timeout), file=output)
 
-    return (output.getvalue())
+    return output.getvalue()
 
 
 
@@ -541,6 +619,11 @@ def generate_frontend_configuration(frontend_name=None):
     print("\tmode {:s}".format(mode), file=output)
 
     print("\tbind {:s}:{:d}".format(ip.decode(), port), file=output)
+
+    # ACLs
+    print(generate_acl("pouet"), file=output)
+
+    print("\tuse_backend backend_test if "+generate_condition("test"), file=output)
 
     print("\tdefault_backend backend_{:s}".format(default_backend), file=output)
 
@@ -680,12 +763,11 @@ def generate_backend_configuration(backend_name=None):
 
 
 
-
 add_server(name="riri",ip="15.235.15.20")
 add_server(name="fifi",ip="10.235.15.21")
 add_server(name="loulou",ip="10.235.15.22")
 
-string="GET\ /\ HTTP/1.1\r\nHost:\ www.permisinternet.fr\r\nConnection:\ close\r\nBeli-Destroy-Session:\ true\r\n"
+string="GET\ /\ HTTP/1.1\r\nHost:\ www.website.fr\r\nConnection:\ close\r\n-"
 add_monitor(name="http_check",kind="http",send=string, expect="", fall=2, rise=1, inter=2000, http_disable_on_404=True, http_send_state=True, tcp_port=0)
 
 add_backend(name="test", mode="http",balance="roundrobin",monitor_name="http_check",redispatch=True)
@@ -701,6 +783,9 @@ add_acl("github_hook","hdr_beg(User-Agent) -i GitHub-Hookshot")
 add_acl("github_event","req.hdr(X-GitHub-Event) -m found")
 add_acl("github_delivery","req.hdr(X-GitHub-Delivery) -m found")
 add_acl("github_range","src 192.30.252.0/22")
+#add_acl("noauth", "^.*\-noauth.apps-sandbox\.axaxx\.nu(|:443)$")
+#add_acl("noauth", "^.*\-noauth.apps-eu\.axaxx\.nu(|:443)$")
+
 
 condition =[ { "negate": False , 'acl_name': 'github_hook', "operator": "and" },
                  { 'negate':False, 'acl_name': 'github_event', 'operator': 'and' },
